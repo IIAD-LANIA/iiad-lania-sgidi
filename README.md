@@ -355,3 +355,31 @@ La app en Streamlit Cloud es de usuario único por sesión. Para trabajo colabor
 <div align="center">
   <sub>Sistema desarrollado para el área IIAD · Implementación NTC 5801:2018 / ISO 56002:2019</sub>
 </div>
+
+---
+
+## 🔒 Política de Control de Cambios — Rama `main`
+
+> Equivalente al flujo de aprobación DIAMANTE (SGC-LANIA / GIT-GCD-P-001)
+
+### Regla obligatoria
+
+**Ningún colaborador debe hacer `push` directo a `main`**, incluyendo el administrador del repositorio.
+
+Todo cambio debe seguir el flujo:
+
+1. Crear rama de trabajo: `git checkout -b feature/nombre-cambio`
+2. Desarrollar y hacer commits en la rama
+3. Abrir un **Pull Request** hacia `main`
+4. Obtener **mínimo 1 aprobación** de otro miembro del equipo antes de hacer merge
+5. El merge lo realiza quien aprueba, no quien propone
+
+### Justificación técnica
+
+El plan gratuito de GitHub no permite protección técnica de ramas en repositorios privados.
+Este control procedimental queda registrado como **medida compensatoria** hasta disponibilidad
+de GitHub Team. Fecha de implementación: 2026-04-12.
+
+### Responsable
+
+Iván Huérfano — Área LANIA-IIAD, ICA
