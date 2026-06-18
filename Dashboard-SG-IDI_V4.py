@@ -1011,5 +1011,47 @@ elif page == 'Reportes y Exportar':
 # CONFIGURACION
 # ============================================================
 elif page == 'Configuracion':
-    st.title('Configuracion'); st.divider()
-    # Fecha de inicio
+    st.title('Configuración del Proyecto')
+    st.divider()
+
+    # Cargar config actual desde session_state
+    config = st.session_state.get("estado", {}).get("_config", DEFAULT_CONFIG)
+
+    st.subheader("📅 Parámetros Generales")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        fecha_actual = (
+            datetime.strptime(config["fecha_inicio_proyecto"], "%Y-%m-%d").date()
+            if config.get("fecha_inicio_proyecto")
+            else datetime.today().date()
+        )
+        nueva_fecha = st.date_input(
+            "Fecha de inicio del proyecto",
+            value=fecha_actual,
+            help="Fecha oficial de inicio del SG-IDI"
+        )
+
+    with col2:
+        nuevo_responsable = st.text_input(
+            "Responsable principal",
+            value=config.get("responsable_principal", ""),
+            help="Nombre del líder del proyecto"
+        )
+
+    st.divider()
+
+    if st.button("💾 Guardar configuración", type="primary"):
+        # Actualizar en session_state
+        st.session_state["estado"]["_config"]["fecha_inicio_proyecto"] = str(nueva_fecha)
+        st.session_state["estado"]["_config"]["responsable_principal"] = nuevo_responsable
+
+        # Persistir en el JSON
+        guardar_estado(st.session_state["estado"])
+        st.success("✅ Configuración guardada correctamente.")
+        st.rerun()
+
+    # Vista previa de los valores guardados
+    st.subheader("📋 Valores actuales")
+    st.json(st.session_state["estado"]["_config"])
