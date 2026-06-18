@@ -570,4 +570,7 @@ if page == 'Dashboard':
     phases_done = sum(1 for pk in PHASES if phase_progress(pk)[4] == 100)
     extra_count = len(get_extra_docs()) + len(get_extra_fmts())
     k1,k2,k3,k4 = st.columns(4)
-    k1.metric('Avance General', str(pct_all)+'%', str(done_all)+'/'+str(appl_all)+' activi
+    k1.metric('Avance General',   str(pct_all)+'%',   str(done_all)+'/'+str(appl_all)+' actividades')
+    k2.metric('Avance Docs',      str(pct_docs)+'%',  str(done_docs)+'/'+str(tot_docs)+' documentos')
+    k3.metric('Fases Completas',  str(phases_done),   'de '+str(len(PHASES))+' fases')
+    k4.metric('Extras Añadidos',  str(extra_count),   'docs/formatos adicionales')
