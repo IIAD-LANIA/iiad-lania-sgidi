@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+# NO excluir sgi_state.json — es la base de datos del sistema
+# sgi_state.json  ← comentado intencionalmente
+.streamlit/secrets.toml
