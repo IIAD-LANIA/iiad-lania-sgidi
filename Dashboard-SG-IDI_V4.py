@@ -297,8 +297,11 @@ def load_state():
     return {}
 
 def save_state(s):
+    """Guarda localmente y marca cambios pendientes para sincronizar con GitHub."""
     with open(STATE_FILE, 'w', encoding='utf-8') as f:
         json.dump(s, f, ensure_ascii=False, indent=2)
+    # Marcar que hay cambios pendientes de subir a GitHub
+    st.session_state.pending_save = True
 
 def ikey(pk, iid): return 'chk_' + pk + '_' + iid
 def dkey(code):    return 'doc_' + code
@@ -366,11 +369,13 @@ def code_exists(code):
     all_codes = [d['code'] for d in all_docs()] + [d['code'] for d in all_fmts()]
     return code.strip().upper() in [c.upper() for c in all_codes]
 
+# ---- Inicializar session_state ----
 if 'state' not in st.session_state:
-    st.session_state.state     = load_state()
-    st.session_state.gh_sha    = None
-    st.session_state.gh_source = 'local'
-    st.session_state.gh_loaded = False
+    st.session_state.state        = load_state()
+    st.session_state.gh_sha       = None
+    st.session_state.gh_source    = 'local'
+    st.session_state.gh_loaded    = False
+    st.session_state.pending_save = False  # FIX: flag de auto-guardado
 
 def phase_progress(pk):
     items = PHASES[pk]['items']
@@ -444,16 +449,31 @@ with st.sidebar:
     st.markdown('## Seguimiento de implementación sistema de gestión de la investigación')
     st.markdown('### Laboratorio Nacional de Insumos Agrícolas - LANIA - Área IIAD')
     st.markdown('*basado en las normas NTC 5801 / ISO 56002*')
+
+    # FIX: Carga inicial desde GitHub (solo una vez por sesión)
     if GH_ON and not st.session_state.gh_loaded:
         st.session_state.gh_loaded = True
         with st.spinner('Sincronizando...'):
             gh_state, gh_sha = gh_load()
         if gh_state is not None:
-            st.session_state.state     = gh_state
-            st.session_state.gh_sha    = gh_sha
-            st.session_state.gh_source = 'github'
+            st.session_state.state        = gh_state
+            st.session_state.gh_sha       = gh_sha
+            st.session_state.gh_source    = 'github'
+            st.session_state.pending_save = False
             save_state(gh_state)
             st.rerun()
+
+    # FIX: Auto-guardado en GitHub cuando hay cambios pendientes
+    if GH_ON and st.session_state.get('pending_save', False):
+        ok, msg, new_sha = gh_save(
+            st.session_state.state,
+            st.session_state.get('gh_sha')
+        )
+        if ok:
+            st.session_state.gh_sha       = new_sha
+            st.session_state.gh_source    = 'github'
+            st.session_state.pending_save = False
+
     if GH_ON:
         src   = st.session_state.get('gh_source', 'local')
         color = '#238636' if src == 'github' else '#6e7681'
@@ -486,13 +506,21 @@ with st.sidebar:
             if st.button('Recargar', use_container_width=True):
                 with st.spinner('...'): s, sha = gh_load()
                 if s:
-                    st.session_state.state = s; st.session_state.gh_sha = sha
-                    st.session_state.gh_source = 'github'; save_state(s); st.rerun()
+                    st.session_state.state        = s
+                    st.session_state.gh_sha       = sha
+                    st.session_state.gh_source    = 'github'
+                    st.session_state.pending_save = False
+                    save_state(s)
+                    st.rerun()
                 else: st.error('Error al conectar.')
         with c2:
             if st.button('Guardar', use_container_width=True, type='primary'):
                 with st.spinner('...'): ok, msg, sha2 = gh_save(st.session_state.state, st.session_state.gh_sha)
-                if ok: st.session_state.gh_sha = sha2; st.session_state.gh_source = 'github'; st.success(msg)
+                if ok:
+                    st.session_state.gh_sha       = sha2
+                    st.session_state.gh_source    = 'github'
+                    st.session_state.pending_save = False
+                    st.success(msg)
                 else: st.error(msg)
         st.markdown('---')
     st.download_button('Descargar JSON',
@@ -984,62 +1012,4 @@ elif page == 'Reportes y Exportar':
 # ============================================================
 elif page == 'Configuracion':
     st.title('Configuracion'); st.divider()
-    # Fecha de inicio del proyecto
-    st.markdown('### Fecha de inicio del proyecto')
-    st.caption('Esta fecha es la base para calcular el Gantt y las alertas de atraso. '
-               'Corresponde al dia en que se formalizó el inicio de la implementación.')
-    raw_start = st.session_state.state.get('project_start_date', '')
-    try:    cur_start = date.fromisoformat(raw_start) if raw_start else None
-    except: cur_start = None
-    new_start = st.date_input('Fecha de inicio', value=cur_start, key='cfg_start')
-    if st.button('Guardar fecha de inicio', type='primary'):
-        st.session_state.state['project_start_date'] = str(new_start)
-        save_state(st.session_state.state)
-        st.success(f'Fecha de inicio guardada: {new_start.strftime("%d/%m/%Y")}')
-    if cur_start:
-        end_est = cur_start + timedelta(days=30*12)
-        st.caption(f'Inicio: {cur_start.strftime("%d/%m/%Y")} | Fin estimado (Mes 12): {end_est.strftime("%d/%m/%Y")}')
-    st.divider()
-    st.markdown('### GitHub Sync')
-    if GH_ON:
-        st.success('Repo: '+GH_REPO+' | '+GH_PATH+' | '+GH_BRANCH)
-        st.caption('SHA: '+(st.session_state.gh_sha or 'no cargado')[:7]+' | '+st.session_state.get('gh_source','local'))
-    else:
-        st.warning('GitHub Sync no configurado. Agrega estos Secrets en Streamlit Cloud:')
-        st.code('GITHUB_TOKEN     = ghp_xxxx')
-        st.code('GITHUB_REPO      = usuario/repo')
-        st.code('GITHUB_FILE_PATH = sgi_state.json')
-        st.code('GITHUB_BRANCH    = main')
-    st.divider()
-    st.markdown('### Logo institucional')
-    lb=st.session_state.state.get('logo_b64')
-    c1,c2=st.columns([1,2])
-    with c1:
-        if lb: st.markdown('<img src="'+lb+'" style="width:100%">',unsafe_allow_html=True)
-        else: st.info('Sin logo.')
-    with c2:
-        lf=st.file_uploader('Subir logo',type=['png','jpg','jpeg'])
-        if lf:
-            raw=lf.read(); ext=lf.name.rsplit('.',1)[-1].lower()
-            st.session_state.state['logo_b64']='data:image/'+ext+';base64,'+base64.b64encode(raw).decode()
-            save_state(st.session_state.state); st.rerun()
-        if lb and st.button('Quitar logo'):
-            st.session_state.state.pop('logo_b64',None); save_state(st.session_state.state); st.rerun()
-    st.divider()
-    extra_docs = get_extra_docs(); extra_fmts = get_extra_fmts()
-    if extra_docs or extra_fmts:
-        st.markdown('### Documentos y formatos adicionales')
-        st.caption(f'{len(extra_docs)} documentos y {len(extra_fmts)} formatos incorporados al sistema.')
-        if extra_docs:
-            st.markdown('**Documentos extra:**')
-            for d in extra_docs:
-                st.markdown(f'- `{d["code"]}` — {d["name"]} | {d["phase"]} | agregado: {d.get("added","-")}')
-        if extra_fmts:
-            st.markdown('**Formatos extra:**')
-            for d in extra_fmts:
-                st.markdown(f'- `{d["code"]}` — {d["name"]} | {d["phase"]} | agregado: {d.get("added","-")}')
-        st.divider()
-    n=sum(len(PHASES[pk]['items']) for pk in PHASES)
-    n_docs_total = len(DOCUMENTS)+len(extra_docs)
-    n_fmts_total = len(FORMATS)+len(extra_fmts)
-    st.markdown(f'**Versión:** 4.4 | **Actividades:** {n} | **Docs:** {n_docs_total} | **Formatos:** {n_fmts_total}')
+    # Fecha de inicio
