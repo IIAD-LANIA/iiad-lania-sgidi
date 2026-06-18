@@ -1,3 +1,21 @@
+# Al cargar el estado, asegura que exista la clave de configuración global
+DEFAULT_CONFIG = {
+    "fecha_inicio_proyecto": None,
+    "nombre_proyecto": "SG-IDI IIAD",
+    "responsable_principal": ""
+}
+
+def cargar_estado():
+    if os.path.exists("sgi_state.json"):
+        with open("sgi_state.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+        # Migración: agregar config si no existe
+        if "_config" not in data:
+            data["_config"] = DEFAULT_CONFIG
+        return data
+    return {"_config": DEFAULT_CONFIG}
+}
+
 {
   "chk_Fase 1_1.2": {
     "status": "Pendiente",
